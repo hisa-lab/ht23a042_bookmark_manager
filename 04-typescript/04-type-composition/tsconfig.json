@@ -8,3 +8,7 @@
       "skipLibCheck": true
     }
 }
+
+// 182ページ
+// strictNullChecksは厳密にnullやundefinedを
+// 他の型から区別するコンパイラオプション

@@ -9,3 +9,5 @@ interface D { baz: boolean; }
 type AorB = A | B;
 type AorC = A | C;
 type AorD = A | D;
+
+// typeが型エイリアス
