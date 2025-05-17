@@ -14,3 +14,5 @@ async function fetchPost(id: string): Promise<Post> {
 }
   
 type FetchPostResult = Awaited<ReturnType<typeof fetchPost>>;
+
+// Awaited<T> …… Promse オブジェクト T が解決された後の型を抽出する

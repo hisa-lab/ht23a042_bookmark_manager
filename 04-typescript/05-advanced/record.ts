@@ -9,3 +9,5 @@ const animalKanji: AnimalNote = {
 };
 
 console.log(animalKanji);
+
+// Record<K,T> …… K の要素をキーとしプロパティ値の型を T としたオブジェクトの型を作成する

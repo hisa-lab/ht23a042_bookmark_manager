@@ -20,4 +20,6 @@ const rate: { [unit: string]: number } = {
   };
   
   export { Currency };
+
+  // この場合どちらのCurrencyも同時にエクスポートされる
   
