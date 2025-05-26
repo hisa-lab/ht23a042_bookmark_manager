@@ -1,35 +1,61 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
+import { FC } from "react";
 import './App.css'
 
-function App() {
-  const [count, setCount] = useState(0)
+const App: FC = () => {
+  const name = "Patty";
+  const greet = (name: string) => <p>Hello, {name || "Guest"}!</p>;
+
+  const n = Math.floor(Math.random() * 10); // 0〜9 のランダムな整数を生成
+  const threshold = 5;
+
+  const list = ["Patty", "Rolley", "Bobby"];
+
+  const elems = (
+    <> {/* フラグメント */}
+      <div>foo</div>
+      <div>bar</div>
+      <div>baz</div>
+    </>
+  );
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
+    <div className="App">
+      <div>{greet(name)}</div>
+      <div />
+      <div></div>
+      <div>{""}</div>
+      <div>{undefined}</div>
+      <div>{null}</div>
+      <div>{true}</div>
+      <div>{false}</div>
+      {n > threshold && (
         <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
+          {n} は {threshold} よりも大きい値です
         </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
+      )}
+      {n > threshold || (
+        <p>
+          {n} は {threshold} 以下の値です
+        </p>
+      )}
+      <p>
+        {n} は {n % 2 === 0 ? "偶数" : "奇数"}です
       </p>
-    </>
-  )
-}
+      <ul>
+        {list.map((name) => (
+          <li>Hello, {name}!</li>
+        ))}
+      </ul>
+      {
+        // インラインコメント
+      }
+      {/*
+        複数行に
+        渡るコメント
+      */}
+      {elems}
+    </div>
+  );
+};
 
-export default App
+export default App;
