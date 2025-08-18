@@ -9,13 +9,13 @@ lerna-debug.log*
 .pnpm-store/*
 
 node_modules
+react-renshu
+ht23a102-react-env
 dist
 dist-ssr
 *.local
 
 # Editor directories and files
-.vscode/*
-!.vscode/extensions.json
 .idea
 .DS_Store
 *.suo
