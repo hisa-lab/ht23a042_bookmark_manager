@@ -1,0 +1,3 @@
+{
+    "typescript.tsdk": "bookmark-extension/node_modules/typescript/lib"
+}
