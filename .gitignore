@@ -11,7 +11,6 @@ lerna-debug.log*
 node_modules
 react-renshu
 ht23a102-react-env
-dist
 dist-ssr
 *.local
 
