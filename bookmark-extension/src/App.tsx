@@ -346,10 +346,11 @@ function App() {
                     }}
                   />
                   <a
-                    href={bookmark.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => clickCount(bookmark.id)}
+                    role="link"
+                    onClick={() => {
+                      clickCount(bookmark.id);
+                      chrome.tabs.create({ url: bookmark.url });
+                    }}
                   >
                     <div>{bookmark.title}</div>
                     <div className="bookmark-detail">
@@ -384,10 +385,11 @@ function App() {
                     </div>
                   ) : (
                     <a
-                      href={bookmark.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={() => clickCount(bookmark.id)}
+                      role="link"
+                      onClick={() => {
+                        clickCount(bookmark.id);
+                        chrome.tabs.create({ url: bookmark.url });
+                      }}
                     >
                       <div>{bookmark.title}</div>
                       <div className="bookmark-detail">

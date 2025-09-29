@@ -130,7 +130,6 @@ async function autoDelete() {
     }
     const targetDate = new Date(data[dataId].date);
     const deadline = nowDate(targetDate);
-    console.log("確認:", dataId, "期限=", targetDate, "今日=", today);
     if (!isNaN(targetDate.getTime()) && today >= deadline) {
       subject.push(dataId);
     }
