@@ -1,5 +1,5 @@
 import "./App.css";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Header } from "./components/Header";
 import { Sidebar } from "./components/Sidebar";
 import { Listlog } from "./components/Listlog";
@@ -14,27 +14,19 @@ function App() {
   // 現在のフォルダの取得
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
 
-  // パンくずリスト用のパスを保存
+  // パスを保存
   const [currentPathArray, setCurrentPathArray] = useState<
     chrome.bookmarks.BookmarkTreeNode[]
   >([]);
 
-  // 削除設定の状態切り替え
-  const [deleteMode, setdeleteMode] = useState<boolean>(false);
-
-  // 期限設定の状態切り替え
-  const [dateMode, setdateMode] = useState<boolean>(false);
+  // 使用回数の少ないもの
+  const lowFolderId = "low-folder";
 
   // 期限設定のモード切り替え
-  const [modalMode, setmodalMode] = useState<"compile" | "dateDelete" | null>(
-    null
-  );
+  const [modalMode, setmodalMode] = useState<"compile" | null>(null);
 
-  // 削除チェックボックスの状態保存
+  // チェックボックスの状態保存
   const [checkState, setcheckState] = useState<string[]>([]);
-
-  // 期限設定チェックボックスの状態保存
-  const [dateCheckState, setdateCheckState] = useState<string[]>([]);
 
   // データ保存用
   type bookmarkRecord = {
@@ -46,14 +38,77 @@ function App() {
   // データ更新用
   type BookmarkMessage = { message: string };
 
+  // フォルダとブックマーク単体のオブジェクトを確認
+  const findNodeById = useCallback(
+    (
+      tree: chrome.bookmarks.BookmarkTreeNode[],
+      id: string
+    ): chrome.bookmarks.BookmarkTreeNode | null => {
+      for (const node of tree) {
+        if (node.id === id) return node;
+        if (node.children) {
+          const found = findNodeById(node.children, id);
+          if (found) return found;
+        }
+      }
+      return null;
+    },
+    []
+  );
+
+  // ブックマーク取得、一覧表示
+  const refreshBookmarks = useCallback((): void => {
+    chrome.bookmarks.getTree((nodes) => {
+      const children = nodes[0].children ?? [];
+      setBookmarks(children);
+      if (!currentFolderId) {
+        setCurrentFolderId(children[0]?.id || null);
+      }
+    });
+  }, [currentFolderId]);
+
+  // 削除されたとき専用、ブックマーク取得、一覧表示
+  const refreshBookmarksOnRemove = useCallback((): void => {
+    chrome.bookmarks.getTree((nodes) => {
+      const children = nodes[0].children ?? [];
+      setBookmarks(children);
+      if (currentFolderId) {
+        let newFolderId = currentFolderId;
+        let newPathArray = [...currentPathArray];
+        let exist = findNodeById(children, currentFolderId);
+        while (!exist && currentFolderId !== lowFolderId) {
+          if (newPathArray.length > 1) {
+            const parent = newPathArray[newPathArray.length - 2];
+            newFolderId = parent.id;
+            newPathArray = newPathArray.slice(0, -1);
+            exist = findNodeById(children, newFolderId);
+          } else {
+            break;
+          }
+        }
+        setCurrentFolderId(newFolderId);
+      } else {
+        setCurrentFolderId(children[0]?.id || null);
+      }
+    });
+  }, [currentFolderId, currentPathArray, findNodeById]);
+
+  // スクロールリセット
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [currentFolderId]);
+
   useEffect(() => {
     // ブックマーク取得、ブックマークに変更があった場合の取得
-    getBookmark();
-    const handler = (message: BookmarkMessage) => {
-      if (message.message === "BOOKMARK_UPDATED") {
-        getBookmark();
+    refreshBookmarks();
+    const handler = (msg: BookmarkMessage) => {
+      if (msg.message === "BOOKMARK_REMOVED") {
+        refreshBookmarksOnRemove();
+      } else if (msg.message === "BOOKMARK_UPDATED") {
+        refreshBookmarks();
       }
     };
+
     chrome.runtime.onMessage.addListener(handler);
 
     // データ呼び出し
@@ -64,7 +119,7 @@ function App() {
     return () => {
       chrome.runtime.onMessage.removeListener(handler);
     };
-  }, []);
+  }, [refreshBookmarks, refreshBookmarksOnRemove]);
 
   // パスを求める
   useEffect(() => {
@@ -84,29 +139,19 @@ function App() {
       return [];
     }
     if (currentFolderId !== null) {
-      const pathArray = currentPath(bookmarks, currentFolderId);
-      setCurrentPathArray(pathArray);
+      if (currentFolderId === lowFolderId) {
+        setCurrentPathArray([
+          {
+            id: lowFolderId,
+            title: "使用回数の少ないもの",
+          } as chrome.bookmarks.BookmarkTreeNode,
+        ]);
+      } else {
+        const pathArray = currentPath(bookmarks, currentFolderId);
+        setCurrentPathArray(pathArray);
+      }
     }
   }, [currentFolderId, bookmarks]);
-
-  // 削除設定、期限設定がfalseならチェック初期化
-  useEffect(() => {
-    if (deleteMode === false) {
-      setcheckState([]);
-    }
-    if (dateMode === false) {
-      setdateCheckState([]);
-    }
-  }, [deleteMode, dateMode]);
-
-  // ブックマーク取得
-  function getBookmark(): void {
-    chrome.bookmarks.getTree((nodes) => {
-      const children = nodes[0].children ?? [];
-      setBookmarks(children);
-      setCurrentFolderId(children[0]?.id);
-    });
-  }
 
   // ツリーから指定フォルダ探す関数
   function findFolderById(
@@ -124,21 +169,6 @@ function App() {
     return [];
   }
   const currentFolderChildren = findFolderById(bookmarks, currentFolderId);
-
-  // フォルダとブックマーク単体のオブジェクトを確認
-  function findNodeById(
-    tree: chrome.bookmarks.BookmarkTreeNode[],
-    id: string
-  ): chrome.bookmarks.BookmarkTreeNode | null {
-    for (const node of tree) {
-      if (node.id === id) return node;
-      if (node.children) {
-        const found = findNodeById(node.children, id);
-        if (found) return found;
-      }
-    }
-    return null;
-  }
 
   // 指定したノードから、そのノード自身と子孫ノードすべての id を再帰的に集める
   function collectIdsFromNode(
@@ -193,26 +223,7 @@ function App() {
     return lowlist;
   }
 
-  // モード変更
-  function changeMode(mode: "delete" | "date") {
-    if (mode === "delete") {
-      if (deleteMode) {
-        setdeleteMode(false);
-      } else {
-        setdeleteMode(true);
-        setdateMode(false);
-      }
-    } else if (mode === "date") {
-      if (dateMode) {
-        setdateMode(false);
-      } else {
-        setdateMode(true);
-        setdeleteMode(false);
-      }
-    }
-  }
-
-  // 削除チェックボックスの状態を保存
+  // チェックボックスの状態を保存
   function changeState(id: string, state: boolean): void {
     const node = findNodeById(bookmarks, id);
     const idsToToggle = node ? collectIdsFromNode(node) : [id];
@@ -226,24 +237,9 @@ function App() {
     });
   }
 
-  // 期限設定チェックボックスの状態を保存
-  function dateChangeState(id: string, state: boolean): void {
-    const node = findNodeById(bookmarks, id);
-    const idsToToggle = node ? collectIdsFromNode(node) : [id];
-    setdateCheckState((prev) => {
-      if (state) {
-        const merged = [...prev, ...idsToToggle];
-        return Array.from(new Set(merged));
-      } else {
-        return prev.filter((item) => !idsToToggle.includes(item));
-      }
-    });
-  }
-
   // ブックマーク削除
-  function delete_bookmark(id_list: string[]): void {
+  async function delete_bookmark(id_list: string[]): Promise<void> {
     if (id_list.length === 0) {
-      window.alert("何も選択されていません。");
       return;
     } else {
       const confirmation = window.confirm(
@@ -251,63 +247,38 @@ function App() {
       );
       if (!confirmation) return;
       if (confirmation) {
-        let deletion = 0;
+        // 二重削除防止
+        let filteredIds = [...id_list];
         for (const id of id_list) {
-          const node = findNodeById(bookmarks, id);
-          const idsToDelete = node ? collectIdsFromNode(node) : [id];
-          chrome.bookmarks.removeTree(id, () => {
-            deletion++;
-            if (deletion === id_list.length) {
-              getBookmark();
-              window.alert("削除しました!");
-              setcheckState([]);
-            }
-          });
-          chrome.storage.local.get("data", (result) => {
-            const updated = { ...result.data };
-            for (const delId of idsToDelete) {
-              delete updated[delId];
-            }
-            chrome.storage.local.set({ data: updated });
-          });
+          if (!filteredIds.includes(id)) continue;
+          const [node] = await chrome.bookmarks.getSubTree(id);
+          if (!node) continue;
+          if (node.children) {
+            const subIds: string[] = [];
+            subIds.push(...collectIdsFromNode(node));
+            filteredIds = filteredIds.filter(
+              (sid) => sid === id || !subIds.includes(sid)
+            );
+          }
         }
+        await Promise.all(
+          filteredIds.map((id) =>
+            chrome.bookmarks
+              .removeTree(id)
+              .catch((e) => console.error("削除失敗", e))
+          )
+        );
+        await setcheckState([]);
       }
     }
   }
-
-  // アクションバー分岐まとめ
-  const renderActionBar = () => {
-    if (!deleteMode && !dateMode) return null;
-    return (
-      <div className="action_bar">
-        {deleteMode && (
-          <button onClick={() => delete_bookmark(checkState)}>削除する</button>
-        )}
-        {dateMode && (
-          <button onClick={() => setmodalMode("compile")}>
-            期限を設定する
-          </button>
-        )}
-        {dateMode && (
-          <button
-            onClick={() => {
-              setmodalMode("dateDelete");
-              delete_date(dateCheckState);
-            }}
-          >
-            期限削除
-          </button>
-        )}
-      </div>
-    );
-  };
 
   // 期限設定切り替え
   const renderModal = () => {
     if (modalMode === "compile") {
       return (
         <CompileDate
-          selectedId={dateCheckState}
+          selectedId={checkState}
           onSave={(selectedId, date) => {
             date_bookmark(selectedId, date);
           }}
@@ -325,6 +296,7 @@ function App() {
       newDate[id] = newDate[id] || { count: 0, date: undefined };
       newDate[id].date = dateData;
     }
+    setcheckState([]);
     saveData(newDate);
   }
 
@@ -335,6 +307,7 @@ function App() {
       newDate[id] = newDate[id] || { count: 0, date: undefined };
       newDate[id].date = undefined;
     }
+    setcheckState([]);
     saveData(newDate);
   }
 
@@ -347,43 +320,31 @@ function App() {
   return (
     <>
       <Header
-        deleteMode={deleteMode}
-        dateMode={dateMode}
-        onDeleteMode={() => changeMode("delete")}
-        onDateMode={() => changeMode("date")}
+        onDelete_Bookmark={() => delete_bookmark(checkState)}
+        onSetmodalMode={() => setmodalMode("compile")}
+        onDelete_date={() => delete_date(checkState)}
       />
       <Sidebar
         bookmarks={bookmarks}
+        lowlistLength={countLow(data, bookmarks).length}
         onSidebar0={() => setCurrentFolderId(bookmarks[0]?.id)}
         onSidebar1={() => setCurrentFolderId(bookmarks[1]?.id)}
-        onSidebar2={() => setCurrentFolderId(bookmarks[2]?.id)}
+        onSidebar2={() => setCurrentFolderId(lowFolderId)}
       />
       <Listlog path={currentPathArray} onlog={setCurrentFolderId} />
       <div className="list">
         <ul>
-          {currentFolderId === bookmarks[2]?.id
+          {currentFolderId === lowFolderId
             ? sortBookmarks(countLow(data, bookmarks)).map((bookmark) => (
                 <li key={bookmark.id}>
-                  {deleteMode ? (
-                    <input
-                      className="check"
-                      type="checkbox"
-                      checked={checkState.includes(bookmark.id)}
-                      onChange={(event) => {
-                        changeState(bookmark.id, event.target.checked);
-                      }}
-                    />
-                  ) : null}
-                  {dateMode ? (
-                    <input
-                      className="check"
-                      type="checkbox"
-                      checked={dateCheckState.includes(bookmark.id)}
-                      onChange={(event) => {
-                        dateChangeState(bookmark.id, event.target.checked);
-                      }}
-                    />
-                  ) : null}
+                  <input
+                    className="check"
+                    type="checkbox"
+                    checked={checkState.includes(bookmark.id)}
+                    onChange={(event) => {
+                      changeState(bookmark.id, event.target.checked);
+                    }}
+                  />
                   <a
                     href={bookmark.url}
                     target="_blank"
@@ -392,7 +353,7 @@ function App() {
                   >
                     <div>{bookmark.title}</div>
                     <div className="bookmark-detail">
-                      {data[bookmark.id]?.count || 0}回使用 期限日：
+                      {data[bookmark.id]?.count || 0}回使用 削除日：
                       {data[bookmark.id]?.date || "未設定"}
                     </div>
                   </a>
@@ -400,26 +361,14 @@ function App() {
               ))
             : sortBookmarks(currentFolderChildren).map((bookmark) => (
                 <li key={bookmark.id}>
-                  {deleteMode ? (
-                    <input
-                      className="check"
-                      type="checkbox"
-                      checked={checkState.includes(bookmark.id)}
-                      onChange={(event) => {
-                        changeState(bookmark.id, event.target.checked);
-                      }}
-                    />
-                  ) : null}
-                  {dateMode ? (
-                    <input
-                      className="check"
-                      type="checkbox"
-                      checked={dateCheckState.includes(bookmark.id)}
-                      onChange={(event) => {
-                        dateChangeState(bookmark.id, event.target.checked);
-                      }}
-                    />
-                  ) : null}
+                  <input
+                    className="check"
+                    type="checkbox"
+                    checked={checkState.includes(bookmark.id)}
+                    onChange={(event) => {
+                      changeState(bookmark.id, event.target.checked);
+                    }}
+                  />
                   {bookmark.children ? (
                     <div
                       role="button"
@@ -430,7 +379,7 @@ function App() {
                     >
                       <div>📁 {bookmark.title}</div>
                       <div className="bookmark-detail">
-                        期限日：{data[bookmark.id]?.date || "未設定"}
+                        削除日：{data[bookmark.id]?.date || "未設定"}
                       </div>
                     </div>
                   ) : (
@@ -442,7 +391,7 @@ function App() {
                     >
                       <div>{bookmark.title}</div>
                       <div className="bookmark-detail">
-                        {data[bookmark.id]?.count || 0}回使用 期限日：
+                        {data[bookmark.id]?.count || 0}回使用 削除日：
                         {data[bookmark.id]?.date || "未設定"}
                       </div>
                     </a>
@@ -451,7 +400,6 @@ function App() {
               ))}
         </ul>
       </div>
-      {renderActionBar()}
       {renderModal()}
     </>
   );

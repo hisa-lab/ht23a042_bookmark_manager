@@ -3,7 +3,7 @@
   "name": "Bookmark Extensions",
   "version": "1.0.0",
   "description": "使用回数・期限管理および削除提案機能を備えたブックマークマネージャ",
-  "permissions": ["bookmarks", "storage", "tabs"],
+  "permissions": ["bookmarks", "storage", "tabs", "alarms"],
   "action": {
     "default_title": "Click!",
     "default_icon": { "16": "icon.png" }

@@ -20,7 +20,6 @@ export function CompileDate({ selectedId, onSave, onClose }: CompileDateProps) {
 
   useEffect(() => {
     if (selectedId.length === 0) return;
-
     const promises = selectedId.map((id) => getBookmarkTitle(id));
     Promise.all(promises).then((titles) => {
       setTitles(titles);
@@ -30,14 +29,14 @@ export function CompileDate({ selectedId, onSave, onClose }: CompileDateProps) {
   return (
     <div className="overlay">
       <div className="modal">
-        <h1>期限設定</h1>
+        <h1>削除日設定</h1>
         <ul>
           {titles.map((title, index) => (
             <li key={index}>{title}</li>
           ))}
         </ul>
         <div className="date-field">
-          <label htmlFor="expireDate">期限日</label>
+          <label htmlFor="expireDate">削除日</label>
           <input
             id="expireDate"
             type="date"
@@ -59,10 +58,7 @@ export function CompileDate({ selectedId, onSave, onClose }: CompileDateProps) {
                 return;
               }
               const confirmation = window.confirm(
-                `自動削除の期限を設定します。設定した期限日を過ぎると自動削除されます。\n
-                （補足）\n
-                ［1］例えば9/9を設定した場合、9/9の0時以降に削除対象になります。\n
-                ［2］フォルダを選んでいる場合は、中身が未設定でも全て削除されます。`
+                `自動削除の削除日を設定します。設定した削除日になると自動削除されます。\n(補足)\n[1]例えば9/9を設定した場合、9/9の0時以降に削除対象になります。\n[2]フォルダを選んでいる場合は、中身が未設定でも全て削除されます。`
               );
               if (!confirmation) return;
               if (confirmation) {

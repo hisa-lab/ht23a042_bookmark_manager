@@ -28,6 +28,25 @@
   box-sizing: border-box;
 }
 
+.badge-button {
+  position: relative;
+}
+
+.badge {
+  position: absolute;
+  top: -0.3rem;
+  right: -0.3rem;
+  background: red;
+  color: white;
+  border-radius: 9999px;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: bold;
+  line-height: 1;
+  min-width: 1.2rem;
+  text-align: center;
+}
+
 .listlog{
   position: fixed;
   top: 87px;
@@ -75,20 +94,6 @@ ul {
 .check {
   transform: scale(1.5);
   margin-right: 8px;
-}
-
-.action_bar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  background-color: skyblue;
-  padding: 10px 20px;
-  box-sizing: border-box;
-  justify-content: flex-end;
-  gap: 8px;
 }
 
 .overlay {
