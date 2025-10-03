@@ -72,7 +72,6 @@ function App() {
     chrome.bookmarks.getTree((nodes) => {
       const children = nodes[0].children ?? [];
       setBookmarks(children);
-      // console.log(children);
       if (currentFolderId) {
         let newFolderId = currentFolderId;
         let newPathArray = [...currentPathArray];
