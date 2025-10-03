@@ -76,7 +76,6 @@ function App() {
         let newFolderId = currentFolderId;
         let newPathArray = [...currentPathArray];
         let exist = findNodeById(children, currentFolderId);
-        console.log(exist);
         while (!exist && currentFolderId !== lowFolderId) {
           if (newPathArray.length > 1) {
             const parent = newPathArray[newPathArray.length - 2];
