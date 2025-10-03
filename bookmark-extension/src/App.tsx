@@ -72,10 +72,12 @@ function App() {
     chrome.bookmarks.getTree((nodes) => {
       const children = nodes[0].children ?? [];
       setBookmarks(children);
+      // console.log(children);
       if (currentFolderId) {
         let newFolderId = currentFolderId;
         let newPathArray = [...currentPathArray];
         let exist = findNodeById(children, currentFolderId);
+        console.log(exist);
         while (!exist && currentFolderId !== lowFolderId) {
           if (newPathArray.length > 1) {
             const parent = newPathArray[newPathArray.length - 2];
@@ -86,7 +88,11 @@ function App() {
             break;
           }
         }
-        setCurrentFolderId(newFolderId);
+        if (exist) {
+          setCurrentFolderId(newFolderId);
+        } else {
+          setCurrentFolderId(children[0]?.id || null);
+        }
       } else {
         setCurrentFolderId(children[0]?.id || null);
       }
@@ -329,7 +335,8 @@ function App() {
         lowlistLength={countLow(data, bookmarks).length}
         onSidebar0={() => setCurrentFolderId(bookmarks[0]?.id)}
         onSidebar1={() => setCurrentFolderId(bookmarks[1]?.id)}
-        onSidebar2={() => setCurrentFolderId(lowFolderId)}
+        onSidebar2={() => setCurrentFolderId(bookmarks[2]?.id)}
+        onSidebar3={() => setCurrentFolderId(lowFolderId)}
       />
       <Listlog path={currentPathArray} onlog={setCurrentFolderId} />
       <div className="list">
