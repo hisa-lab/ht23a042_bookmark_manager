@@ -331,10 +331,13 @@ function App() {
       <Sidebar
         bookmarks={bookmarks}
         lowlistLength={countLow(data, bookmarks).length}
-        onSidebar0={() => setCurrentFolderId(bookmarks[0]?.id)}
-        onSidebar1={() => setCurrentFolderId(bookmarks[1]?.id)}
-        onSidebar2={() => setCurrentFolderId(bookmarks[2]?.id)}
-        onSidebar3={() => setCurrentFolderId(lowFolderId)}
+        onSidebarClick={(id) => {
+          if (id === "lowlist") {
+            setCurrentFolderId(lowFolderId);
+          } else {
+            setCurrentFolderId(id);
+          }
+        }}
       />
       <Listlog path={currentPathArray} onlog={setCurrentFolderId} />
       <div className="list">
