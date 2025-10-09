@@ -75,18 +75,25 @@ function App() {
       if (currentFolderId) {
         let newFolderId = currentFolderId;
         let newPathArray = [...currentPathArray];
-        let exist = findNodeById(children, currentFolderId);
+        let exist = findNodeById(nodes, currentFolderId); // findNodeById(children, currentFolderId);
         while (!exist && currentFolderId !== lowFolderId) {
           if (newPathArray.length > 1) {
             const parent = newPathArray[newPathArray.length - 2];
             newFolderId = parent.id;
             newPathArray = newPathArray.slice(0, -1);
-            exist = findNodeById(children, newFolderId);
+            exist = findNodeById(nodes, newFolderId); // findNodeById(children, currentFolderId);
           } else {
             break;
           }
         }
-        if (exist) {
+        // 👇ここに入れると一番情報が取れる！
+        console.log("newFolderId after loop:", newFolderId);
+        console.log(
+          "children",
+          children.map((c) => ({ id: c.id, title: c.title }))
+        );
+        console.log("exist after loop:", findNodeById(children, newFolderId));
+        if (exist || currentFolderId === lowFolderId) {
           setCurrentFolderId(newFolderId);
         } else {
           setCurrentFolderId(children[0]?.id || null);
