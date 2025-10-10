@@ -19,6 +19,11 @@ function App() {
     chrome.bookmarks.BookmarkTreeNode[]
   >([]);
 
+  // 空以外のパスを保存
+  const [cachedPathArray, setCachedPathArray] = useState<
+    chrome.bookmarks.BookmarkTreeNode[]
+  >([]);
+
   // 使用回数の少ないもの
   const lowFolderId = "low-folder";
 
@@ -74,26 +79,19 @@ function App() {
       setBookmarks(children);
       if (currentFolderId) {
         let newFolderId = currentFolderId;
-        let newPathArray = [...currentPathArray];
-        let exist = findNodeById(nodes, currentFolderId); // findNodeById(children, currentFolderId);
-        while (!exist && currentFolderId !== lowFolderId) {
+        let newPathArray = [...cachedPathArray];
+        let exist = findNodeById(nodes, newFolderId);
+        while (!exist && newFolderId !== lowFolderId) {
           if (newPathArray.length > 1) {
             const parent = newPathArray[newPathArray.length - 2];
             newFolderId = parent.id;
             newPathArray = newPathArray.slice(0, -1);
-            exist = findNodeById(nodes, newFolderId); // findNodeById(children, currentFolderId);
+            exist = findNodeById(nodes, newFolderId);
           } else {
             break;
           }
         }
-        // 👇ここに入れると一番情報が取れる！
-        console.log("newFolderId after loop:", newFolderId);
-        console.log(
-          "children",
-          children.map((c) => ({ id: c.id, title: c.title }))
-        );
-        console.log("exist after loop:", findNodeById(children, newFolderId));
-        if (exist || currentFolderId === lowFolderId) {
+        if (exist || newFolderId === lowFolderId) {
           setCurrentFolderId(newFolderId);
         } else {
           setCurrentFolderId(children[0]?.id || null);
@@ -102,7 +100,7 @@ function App() {
         setCurrentFolderId(children[0]?.id || null);
       }
     });
-  }, [currentFolderId, currentPathArray, findNodeById]);
+  }, [currentFolderId, cachedPathArray, findNodeById]);
 
   // スクロールリセット
   useEffect(() => {
@@ -163,6 +161,13 @@ function App() {
       }
     }
   }, [currentFolderId, bookmarks]);
+
+  // 空以外のパスを保存
+  useEffect(() => {
+    if (currentPathArray.length > 0) {
+      setCachedPathArray(currentPathArray);
+    }
+  }, [currentPathArray]);
 
   // ツリーから指定フォルダ探す関数
   function findFolderById(
