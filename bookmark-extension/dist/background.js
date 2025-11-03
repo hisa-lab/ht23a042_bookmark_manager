@@ -3,6 +3,28 @@ chrome.action.onClicked.addListener(() => {
   chrome.tabs.create({ url: "index.html" });
 });
 
+// 使い始めた時
+chrome.runtime.onInstalled.addListener(async (details) => {
+  if (details.reason === "install") {
+    const bookmarks = await getBookmarks();
+    const data = await getData();
+    const today = nowDate(new Date()).toISOString();
+    const allIds = [];
+    for (const node of bookmarks) {
+      allIds.push(...collectIdsFromNode(node));
+    }
+    for (const id of allIds) {
+      if (!data[id]) {
+        data[id] = {};
+      }
+      if (!data[id].adddate) {
+        data[id].adddate = today;
+      }
+    }
+    await chrome.storage.local.set({ data: data });
+  }
+});
+
 // ブックマーク更新
 function message(type) {
   chrome.runtime.sendMessage({ message: type }).catch((e) => {
@@ -10,16 +32,72 @@ function message(type) {
   });
 }
 
+// 追加日を記録の付け逃し防止
+async function fillMissingAddDate() {
+  console.log("追加日付け逃し確認開始");
+  const tree = await getBookmarks();
+  const data = await getData();
+  const today = nowDate(new Date()).toISOString();
+  function traverse(nodes) {
+    for (const node of nodes) {
+      if (!data[node.id]) data[node.id] = {};
+      if (!data[node.id].adddate) {
+        if (node.dateAdded) {
+          data[node.id].adddate = nowDate(
+            new Date(node.dateAdded)
+          ).toISOString();
+          console.log(
+            "node.id=",
+            node.id,
+            "node.dateAdded=",
+            node.dateAdded,
+            "追加日付け逃し発見 dateAddedをつけます"
+          );
+        } else {
+          data[node.id].adddate = today;
+          console.log(
+            "node.id=",
+            node.id,
+            "today=",
+            today,
+            "dateAddがなかったのでtodayをつけます"
+          );
+        }
+      }
+      if (node.children) traverse(node.children);
+    }
+  }
+  traverse(tree);
+  await chrome.storage.local.set({ data });
+  console.log("追加日付け逃し確認完了");
+}
+const scheduleFill = (() => {
+  let timer = null;
+  return function () {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(fillMissingAddDate, 2000);
+  };
+})();
+
 chrome.bookmarks.onRemoved.addListener(() => message("BOOKMARK_REMOVED"));
 chrome.bookmarks.onChanged.addListener(() => message("BOOKMARK_UPDATED"));
-chrome.bookmarks.onCreated.addListener(() => message("BOOKMARK_UPDATED"));
 chrome.bookmarks.onMoved.addListener(() => message("BOOKMARK_UPDATED"));
 chrome.bookmarks.onChildrenReordered.addListener(() =>
   message("BOOKMARK_UPDATED")
 );
+chrome.bookmarks.onCreated.addListener(async (id, node) => {
+  await message("BOOKMARK_UPDATED");
+  console.log("id=", id, "node=", node);
+  const data = await getData();
+  if (!data[id]) data[id] = {};
+  if (!data[id].adddate) {
+    data[id].adddate = nowDate(new Date(node.dateAdded)).toISOString();
+  }
+  await chrome.storage.local.set({ data });
+  scheduleFill();
+});
 
 // ロック機能
-// ロック確認
 async function tryLock() {
   const result = await chrome.storage.local.get("lock");
   const lock = result.lock || { locknow: false, startTime: 0 };
@@ -50,10 +128,12 @@ async function releaseLock() {
 chrome.runtime.onStartup.addListener(async () => {
   if (await tryLock()) {
     try {
+      console.log("起動直後の処理開始");
       await autoDelete();
       await dataDelete();
     } finally {
       await releaseLock();
+      console.log("起動直後の処理終了");
     }
   }
 });
@@ -64,10 +144,12 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name === "autoAlarm") {
     if (await tryLock()) {
       try {
+        console.log("アラーム内の処理開始");
         await autoDelete();
         await dataDelete();
       } finally {
         await releaseLock();
+        console.log("アラーム内の処理終了");
       }
     }
   }
@@ -114,14 +196,14 @@ function nowDate(now) {
 }
 // 自動削除
 async function autoDelete() {
+  console.log("自動削除確認開始");
   const data = await getData();
   const bookmarks = await getBookmarks();
   const allIds = [];
   for (const node of bookmarks) {
     allIds.push(...collectIdsFromNode(node));
   }
-  const now = new Date();
-  const today = nowDate(now);
+  const today = nowDate(new Date());
   const keys = Object.keys(data);
   let subject = [];
   for (const dataId of keys) {
@@ -150,10 +232,12 @@ async function autoDelete() {
   for (const id of filteredIds) {
     await removeBookmark(id).catch((e) => console.error("削除失敗", e));
   }
+  console.log("自動削除確認終了");
 }
 
 // データ削除
 async function dataDelete() {
+  console.log("データ削除確認開始");
   const data = await getData();
   const bookmarks = await getBookmarks();
   const keys = Object.keys(data);
@@ -167,4 +251,5 @@ async function dataDelete() {
     }
   }
   await chrome.storage.local.set({ data: data });
+  console.log("データ削除確認完了");
 }

@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Bookmark Extensions",
   "version": "1.0.0",
-  "description": "使用回数・期限管理および削除提案機能を備えたブックマークマネージャ",
+  "description": "使用回数に基づいた整理および自動削除機能を備えたChromeブックマークマネージャ",
   "permissions": ["bookmarks", "storage", "tabs", "alarms"],
   "action": {
     "default_title": "Click!",
