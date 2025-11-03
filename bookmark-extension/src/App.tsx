@@ -27,8 +27,11 @@ function App() {
   // 使用回数の少ないもの
   const lowFolderId = "low-folder";
 
-  // 期限設定のモード切り替え
+  // 削除日設定のモード切り替え
   const [modalMode, setmodalMode] = useState<"compile" | null>(null);
+
+  // 個別削除日設定の状態表示
+  const [tempDate, settempDate] = useState<Record<string, string>>({});
 
   // チェックボックスの状態保存
   const [checkState, setcheckState] = useState<string[]>([]);
@@ -37,6 +40,7 @@ function App() {
   type bookmarkRecord = {
     count?: number;
     date?: string;
+    adddate?: string;
   };
   const [data, setData] = useState<Record<string, bookmarkRecord>>({});
 
@@ -202,7 +206,7 @@ function App() {
   // クリック数をカウント
   function clickCount(id: string): void {
     const newCounts = { ...data };
-    newCounts[id] = newCounts[id] || { count: 0, date: undefined };
+    newCounts[id] = newCounts[id] || { count: 0 };
     newCounts[id].count = (newCounts[id].count || 0) + 1;
     saveData(newCounts);
   }
@@ -219,19 +223,34 @@ function App() {
     });
   }
 
-  // 使用回数が3回以下、期限が決まってないものを抽出(フォルダは除外)
+  // 日付取得
+  function nowDate(now: Date) {
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const day = now.getDate();
+    const nowDate = new Date(year, month, day);
+    return nowDate;
+  }
+
+  // 使用回数が3回以下かつ削除日が決まってないかつ追加してから7日経ったもの(日付単位)を抽出(フォルダは除外)
   function countLow(
     data: Record<string, bookmarkRecord>,
     bookmarks: chrome.bookmarks.BookmarkTreeNode[]
   ): chrome.bookmarks.BookmarkTreeNode[] {
     const lowlist = [];
+    const today = nowDate(new Date());
     for (const node of bookmarks) {
       if (node.children) {
         const lowchildren = countLow(data, node.children);
         lowlist.push(...lowchildren);
       } else {
         const count = data[node.id]?.count ?? 0;
-        if (count <= 3 && data[node.id]?.date === undefined) {
+        const addDateRaw = data[node.id]?.adddate;
+        if (!addDateRaw) continue;
+        const addDate = nowDate(new Date(addDateRaw));
+        const diff = today.getTime() - addDate.getTime();
+        const diffDays = diff / (1000 * 60 * 60 * 24);
+        if (count <= 3 && data[node.id]?.date === undefined && diffDays >= 7) {
           lowlist.push(node);
         }
       }
@@ -259,7 +278,7 @@ function App() {
       return;
     } else {
       const confirmation = window.confirm(
-        "本当に削除しますか?\n(フォルダを選んでいる場合は中身が未チェックでも中身も全て削除されます。)"
+        "本当に削除しますか?\n(フォルダを選択している場合は中身が未チェックでも中身も全て削除されます。)"
       );
       if (!confirmation) return;
       if (confirmation) {
@@ -289,7 +308,7 @@ function App() {
     }
   }
 
-  // 期限設定切り替え
+  // 削除日設定切り替え
   const renderModal = () => {
     if (modalMode === "compile") {
       return (
@@ -305,22 +324,22 @@ function App() {
     return null;
   };
 
-  // ブックマーク期限設定
+  // ブックマーク削除日設定
   function date_bookmark(id_list: string[], dateData: string): void {
     const newDate = { ...data };
     for (const id of id_list) {
-      newDate[id] = newDate[id] || { count: 0, date: undefined };
+      newDate[id] = newDate[id] || { date: undefined };
       newDate[id].date = dateData;
     }
     setcheckState([]);
     saveData(newDate);
   }
 
-  // ブックマーク期限設定削除
+  // ブックマーク削除日設定削除
   function delete_date(id_list: string[]): void {
     const newDate = { ...data };
     for (const id of id_list) {
-      newDate[id] = newDate[id] || { count: 0, date: undefined };
+      newDate[id] = newDate[id] || { date: undefined };
       newDate[id].date = undefined;
     }
     setcheckState([]);
@@ -358,6 +377,7 @@ function App() {
             ? sortBookmarks(countLow(data, bookmarks)).map((bookmark) => (
                 <li key={bookmark.id}>
                   <input
+                    id={`check-low-${bookmark.id}`}
                     className="check"
                     type="checkbox"
                     checked={checkState.includes(bookmark.id)}
@@ -373,16 +393,57 @@ function App() {
                     }}
                   >
                     <div>{bookmark.title}</div>
-                    <div className="bookmark-detail">
-                      {data[bookmark.id]?.count || 0}回使用 削除日：
-                      {data[bookmark.id]?.date || "未設定"}
-                    </div>
                   </a>
+                  <div className="bookmark-detail">
+                    {data[bookmark.id]?.count || 0}回使用 削除日：
+                    <input
+                      id={`expireDate-low-${bookmark.id}`}
+                      type="date"
+                      value={
+                        tempDate[bookmark.id] !== undefined
+                          ? tempDate[bookmark.id]
+                          : data[bookmark.id]?.date || ""
+                      }
+                      onChange={(event) => {
+                        settempDate((prev) => ({
+                          ...prev,
+                          [bookmark.id]: event.target.value,
+                        }));
+                      }}
+                    />
+                    <button
+                      className={
+                        tempDate[bookmark.id] !== undefined
+                          ? "not-saved"
+                          : "date-individual-save"
+                      }
+                      onClick={() => {
+                        if (tempDate[bookmark.id] === undefined) return;
+                        date_bookmark([bookmark.id], tempDate[bookmark.id]);
+                        settempDate((prev) => {
+                          const copy = { ...prev };
+                          delete copy[bookmark.id];
+                          return copy;
+                        });
+                      }}
+                    >
+                      保存
+                    </button>
+                  </div>
+                  <button
+                    className="delete-individual"
+                    onClick={() => {
+                      chrome.bookmarks.removeTree(bookmark.id);
+                    }}
+                  >
+                    削除
+                  </button>
                 </li>
               ))
             : sortBookmarks(currentFolderChildren).map((bookmark) => (
                 <li key={bookmark.id}>
                   <input
+                    id={`check-${bookmark.id}`}
                     className="check"
                     type="checkbox"
                     checked={checkState.includes(bookmark.id)}
@@ -391,33 +452,122 @@ function App() {
                     }}
                   />
                   {bookmark.children ? (
-                    <div
-                      role="button"
-                      onClick={() => {
-                        setCurrentFolderId(bookmark.id);
-                        clickCount(bookmark.id);
-                      }}
-                    >
-                      <div>📁 {bookmark.title}</div>
+                    <div>
+                      <div
+                        role="button"
+                        onClick={() => {
+                          setCurrentFolderId(bookmark.id);
+                          clickCount(bookmark.id);
+                        }}
+                      >
+                        <div>📁 {bookmark.title}</div>
+                      </div>
                       <div className="bookmark-detail">
-                        削除日：{data[bookmark.id]?.date || "未設定"}
+                        削除日：
+                        <input
+                          id={`expireDate-${bookmark.id}`}
+                          type="date"
+                          value={
+                            tempDate[bookmark.id] !== undefined
+                              ? tempDate[bookmark.id]
+                              : data[bookmark.id]?.date || ""
+                          }
+                          onChange={(event) => {
+                            settempDate((prev) => ({
+                              ...prev,
+                              [bookmark.id]: event.target.value,
+                            }));
+                          }}
+                        />
+                        <button
+                          className={
+                            tempDate[bookmark.id] !== undefined
+                              ? "not-saved"
+                              : "date-individual-save"
+                          }
+                          onClick={() => {
+                            if (tempDate[bookmark.id] === undefined) return;
+                            date_bookmark([bookmark.id], tempDate[bookmark.id]);
+                            settempDate((prev) => {
+                              const copy = { ...prev };
+                              delete copy[bookmark.id];
+                              return copy;
+                            });
+                          }}
+                        >
+                          保存
+                        </button>
+                        <span className="tooltip">
+                          ⓘ
+                          <span className="tooltip-word">
+                            個別設定では、中身に削除日が反映されません。
+                            <br />
+                            フォルダに削除日を設定すると、中身もその日にまとめて削除されます。
+                            <br />
+                            フォルダと中身が別設定の場合でもフォルダの削除日に合わせて削除されます。
+                            <br />
+                            （中身の削除日がフォルダの削除日より早い場合は、中身の削除日通りに削除されます。）
+                          </span>
+                        </span>
                       </div>
                     </div>
                   ) : (
-                    <a
-                      role="link"
-                      onClick={() => {
-                        clickCount(bookmark.id);
-                        chrome.tabs.create({ url: bookmark.url });
-                      }}
-                    >
-                      <div>{bookmark.title}</div>
+                    <div>
+                      <a
+                        role="link"
+                        onClick={() => {
+                          clickCount(bookmark.id);
+                          chrome.tabs.create({ url: bookmark.url });
+                        }}
+                      >
+                        <div>{bookmark.title}</div>
+                      </a>
                       <div className="bookmark-detail">
                         {data[bookmark.id]?.count || 0}回使用 削除日：
-                        {data[bookmark.id]?.date || "未設定"}
+                        <input
+                          id={`expireDate-${bookmark.id}`}
+                          type="date"
+                          value={
+                            tempDate[bookmark.id] !== undefined
+                              ? tempDate[bookmark.id]
+                              : data[bookmark.id]?.date || ""
+                          }
+                          onChange={(event) => {
+                            settempDate((prev) => ({
+                              ...prev,
+                              [bookmark.id]: event.target.value,
+                            }));
+                          }}
+                        />
+                        <button
+                          className={
+                            tempDate[bookmark.id] !== undefined
+                              ? "not-saved"
+                              : "date-individual-save"
+                          }
+                          onClick={() => {
+                            if (tempDate[bookmark.id] === undefined) return;
+                            date_bookmark([bookmark.id], tempDate[bookmark.id]);
+                            settempDate((prev) => {
+                              const copy = { ...prev };
+                              delete copy[bookmark.id];
+                              return copy;
+                            });
+                          }}
+                        >
+                          保存
+                        </button>
                       </div>
-                    </a>
+                    </div>
                   )}
+                  <button
+                    className="delete-individual"
+                    onClick={() => {
+                      chrome.bookmarks.removeTree(bookmark.id);
+                    }}
+                  >
+                    削除
+                  </button>
                 </li>
               ))}
         </ul>
