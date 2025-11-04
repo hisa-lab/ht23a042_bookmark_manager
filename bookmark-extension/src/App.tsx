@@ -250,7 +250,14 @@ function App() {
         const addDate = nowDate(new Date(addDateRaw));
         const diff = today.getTime() - addDate.getTime();
         const diffDays = diff / (1000 * 60 * 60 * 24);
-        if (count <= 3 && data[node.id]?.date === undefined && diffDays >= 7) {
+
+        // 確認
+        console.log(`title=${node.title}, id=${node.id}`);
+        console.log("保存されてるadddate:", addDateRaw);
+        console.log("now (UTC):", today.toISOString());
+        console.log("diff days:", diffDays);
+
+        if (count <= 3 && !data[node.id]?.date && diffDays >= 7) {
           lowlist.push(node);
         }
       }
