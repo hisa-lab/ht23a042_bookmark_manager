@@ -11,10 +11,15 @@
   padding: 10px 20px;
   box-sizing: border-box;
   z-index: 1100;
+  white-space: nowrap;
 }
+
 .header-buttons {
   display: flex;
   gap: 10px;
+  overflow-x: auto;
+  scrollbar-width: none; /*スクロール非表示*/
+  white-space: nowrap; /* 折り返さず横に並べる */
 }
 
 .sidebar{
@@ -25,7 +30,15 @@
   height: calc(100% - 60px);
   background-color: gainsboro;
   padding: 10px;
+  padding-bottom: 30px;
   box-sizing: border-box;
+  z-index: 1000;
+  overflow-y: auto;
+  overflow-x: auto;
+}
+
+.sidebar button{
+  white-space: nowrap;
 }
 
 .badge-button {
@@ -47,15 +60,22 @@
   text-align: center;
 }
 
-.listlog{
+.listlog {
   position: fixed;
   top: 87px;
   left: 270px;
-  width: 100%;
+  right: 0;
   padding: 10px;
   font-size: 20px;
   background-color: lightsteelblue;
   z-index: 1000;
+  box-sizing: border-box;
+  overflow-x: auto;       /* 横スクロールを許可 */
+  white-space: nowrap;    /* 折り返さず横に並べる */
+}
+
+.listlog span {
+  display: inline-block;
 }
 
 .listlog button{
@@ -78,14 +98,27 @@ ul {
   padding: 20px 0;
   border-bottom: 1px solid #ccc;
   font-size: 20px; 
-  position: relative;
-  padding-right: 110px;
+  position: relative; /* 削除ボタンの基準位置 */
+  padding-right: 110px; /* 削除ボタン分の余白 */
 }
 
 .list li:hover{
   border: 2px solid rgb(19, 0, 128);
   font-weight: bold;
   cursor: pointer;
+}
+
+.bookmark-header{
+  display: flex; /* チェックボックスとタイトルを横並び */
+  align-items: center; /*縦方向の中央*/
+  gap: 10px; /*幅調整*/
+}
+
+.bookmark-title{
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  flex: 1;
+  min-width: 0;
 }
 
 .bookmark-detail{
@@ -131,6 +164,9 @@ ul {
   line-height: 1.4;
   z-index: 10;
   transition: opacity 0.3s;
+  max-width: calc(100vw - 600px); /* 画面の幅から余白を引いて最大幅を決定 */
+  white-space: normal;            /* 折り返す */
+  word-break: break-word;
 }
 
 .tooltip:hover .tooltip-word {
@@ -140,7 +176,7 @@ ul {
 
 .check {
   transform: scale(1.5);
-  margin-right: 8px;
+  flex-shrink: 0;
 }
 
 .delete-individual {
