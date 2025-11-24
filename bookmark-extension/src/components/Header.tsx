@@ -13,9 +13,9 @@ export function Header({
     <div className="header">
       <h1>ブックマークマネージャ</h1>
       <div className="header-buttons">
-        <button onClick={onDelete_Bookmark}>削除</button>
-        <button onClick={onSetmodalMode}>削除日を設定する</button>
-        <button onClick={onDelete_date}>削除日削除</button>
+        <button onClick={onDelete_Bookmark}>一括削除</button>
+        <button onClick={onSetmodalMode}>一括削除日設定</button>
+        <button onClick={onDelete_date}>削除日リセット</button>
       </div>
     </div>
   );
