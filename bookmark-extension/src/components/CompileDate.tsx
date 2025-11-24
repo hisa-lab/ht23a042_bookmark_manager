@@ -3,10 +3,16 @@ import { useEffect, useState } from "react";
 interface CompileDateProps {
   selectedId: string[];
   onSave: (id: string[], date: string) => void;
+  offCheck: () => void;
   onClose: () => void;
 }
 
-export function CompileDate({ selectedId, onSave, onClose }: CompileDateProps) {
+export function CompileDate({
+  selectedId,
+  onSave,
+  offCheck,
+  onClose,
+}: CompileDateProps) {
   const [dateData, setData] = useState<string>("");
   const [titles, setTitles] = useState<string[]>([]);
 
@@ -58,15 +64,16 @@ export function CompileDate({ selectedId, onSave, onClose }: CompileDateProps) {
                 return;
               }
               const confirmation = window.confirm(
-                "自動削除の削除日を設定します。設定した削除日になると自動削除されます。\n" +
+                "自動削除の削除日を設定します。削除日以降に自動削除されます。\n" +
                   "(補足)\n" +
-                  "[1] 例えば9/9を設定した場合、9/9の0時以降に削除対象になります。\n" +
-                  "[2] フォルダを選択している場合は、中身が別設定の場合でも、親フォルダの削除日に合わせて一緒に削除されます。\n" +
+                  "フォルダに設定した場合、中身もフォルダの削除日に合わせて削除されます。\n" +
+                  "中身に削除日は反映されません。\n" +
                   "（中身の削除日がフォルダの削除日より早い場合は、中身の削除日通りに削除されます。）"
               );
               if (!confirmation) return;
               if (confirmation) {
                 onSave(selectedId, dateData);
+                offCheck();
                 onClose();
               }
             }}
