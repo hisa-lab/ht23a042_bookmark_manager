@@ -223,7 +223,7 @@ function App() {
     });
   }
 
-  // 日付取得
+  // 日付をローカルに変更
   function nowDate(now: Date) {
     const year = now.getFullYear();
     const month = now.getMonth();
@@ -232,7 +232,7 @@ function App() {
     return nowDate;
   }
 
-  // 使用回数が3回以下かつ削除日が決まってないかつ追加してから7日経ったもの(日付単位)を抽出(フォルダは除外)
+  // 使用回数が3回以下かつ削除日が未設定かつ追加してから7日経ったもの(日付単位)を抽出(フォルダは除外)
   function countLow(
     data: Record<string, bookmarkRecord>,
     bookmarks: chrome.bookmarks.BookmarkTreeNode[]
@@ -245,19 +245,17 @@ function App() {
         lowlist.push(...lowchildren);
       } else {
         const count = data[node.id]?.count ?? 0;
+        const deleteDate = data[node.id]?.date;
         const addDateRaw = data[node.id]?.adddate;
         if (!addDateRaw) continue;
         const addDate = nowDate(new Date(addDateRaw));
         const diff = today.getTime() - addDate.getTime();
         const diffDays = diff / (1000 * 60 * 60 * 24);
-
-        // 確認
-        console.log(`title=${node.title}, id=${node.id}`);
-        console.log("保存されてるadddate:", addDateRaw);
-        console.log("now (UTC):", today.toISOString());
-        console.log("diff days:", diffDays);
-
-        if (count <= 3 && !data[node.id]?.date && diffDays >= 7) {
+        if (
+          count <= 3 &&
+          (!deleteDate || isNaN(new Date(deleteDate).getTime())) &&
+          diffDays >= 7
+        ) {
           lowlist.push(node);
         }
       }
@@ -267,8 +265,7 @@ function App() {
 
   // チェックボックスの状態を保存
   function changeState(id: string, state: boolean): void {
-    const node = findNodeById(bookmarks, id);
-    const idsToToggle = node ? collectIdsFromNode(node) : [id];
+    const idsToToggle = [id];
     setcheckState((prev) => {
       if (state) {
         const merged = [...prev, ...idsToToggle];
@@ -285,7 +282,7 @@ function App() {
       return;
     } else {
       const confirmation = window.confirm(
-        "本当に削除しますか?\n(フォルダを選択している場合は中身が未チェックでも中身も全て削除されます。)"
+        "本当に削除しますか?\n(フォルダを選択している場合は中身も全て削除されます。)"
       );
       if (!confirmation) return;
       if (confirmation) {
@@ -324,6 +321,7 @@ function App() {
           onSave={(selectedId, date) => {
             date_bookmark(selectedId, date);
           }}
+          offCheck={() => setcheckState([])}
           onClose={() => setmodalMode(null)}
         />
       );
@@ -338,7 +336,6 @@ function App() {
       newDate[id] = newDate[id] || { date: undefined };
       newDate[id].date = dateData;
     }
-    setcheckState([]);
     saveData(newDate);
   }
 
@@ -383,24 +380,27 @@ function App() {
           {currentFolderId === lowFolderId
             ? sortBookmarks(countLow(data, bookmarks)).map((bookmark) => (
                 <li key={bookmark.id}>
-                  <input
-                    id={`check-low-${bookmark.id}`}
-                    className="check"
-                    type="checkbox"
-                    checked={checkState.includes(bookmark.id)}
-                    onChange={(event) => {
-                      changeState(bookmark.id, event.target.checked);
-                    }}
-                  />
-                  <a
-                    role="link"
-                    onClick={() => {
-                      clickCount(bookmark.id);
-                      chrome.tabs.create({ url: bookmark.url });
-                    }}
-                  >
-                    <div>{bookmark.title}</div>
-                  </a>
+                  <div className="bookmark-header">
+                    <input
+                      id={`check-low-${bookmark.id}`}
+                      className="check"
+                      type="checkbox"
+                      checked={checkState.includes(bookmark.id)}
+                      onChange={(event) => {
+                        changeState(bookmark.id, event.target.checked);
+                      }}
+                    />
+                    <a
+                      role="link"
+                      className="bookmark-title"
+                      onClick={() => {
+                        clickCount(bookmark.id);
+                        chrome.tabs.create({ url: bookmark.url });
+                      }}
+                    >
+                      {bookmark.title}
+                    </a>
+                  </div>
                   <div className="bookmark-detail">
                     {data[bookmark.id]?.count || 0}回使用 削除日：
                     <input
@@ -449,25 +449,28 @@ function App() {
               ))
             : sortBookmarks(currentFolderChildren).map((bookmark) => (
                 <li key={bookmark.id}>
-                  <input
-                    id={`check-${bookmark.id}`}
-                    className="check"
-                    type="checkbox"
-                    checked={checkState.includes(bookmark.id)}
-                    onChange={(event) => {
-                      changeState(bookmark.id, event.target.checked);
-                    }}
-                  />
                   {bookmark.children ? (
                     <div>
-                      <div
-                        role="button"
-                        onClick={() => {
-                          setCurrentFolderId(bookmark.id);
-                          clickCount(bookmark.id);
-                        }}
-                      >
-                        <div>📁 {bookmark.title}</div>
+                      <div className="bookmark-header">
+                        <input
+                          id={`check-${bookmark.id}`}
+                          className="check"
+                          type="checkbox"
+                          checked={checkState.includes(bookmark.id)}
+                          onChange={(event) => {
+                            changeState(bookmark.id, event.target.checked);
+                          }}
+                        />
+                        <div
+                          role="button"
+                          className="bookmark-title"
+                          onClick={() => {
+                            setCurrentFolderId(bookmark.id);
+                            clickCount(bookmark.id);
+                          }}
+                        >
+                          📁 {bookmark.title}
+                        </div>
                       </div>
                       <div className="bookmark-detail">
                         削除日：
@@ -507,11 +510,9 @@ function App() {
                         <span className="tooltip">
                           ⓘ
                           <span className="tooltip-word">
-                            個別設定では、中身に削除日が反映されません。
+                            中身に削除日は反映されません。
                             <br />
                             フォルダに削除日を設定すると、中身もその日にまとめて削除されます。
-                            <br />
-                            フォルダと中身が別設定の場合でもフォルダの削除日に合わせて削除されます。
                             <br />
                             （中身の削除日がフォルダの削除日より早い場合は、中身の削除日通りに削除されます。）
                           </span>
@@ -520,15 +521,27 @@ function App() {
                     </div>
                   ) : (
                     <div>
-                      <a
-                        role="link"
-                        onClick={() => {
-                          clickCount(bookmark.id);
-                          chrome.tabs.create({ url: bookmark.url });
-                        }}
-                      >
-                        <div>{bookmark.title}</div>
-                      </a>
+                      <div className="bookmark-header">
+                        <input
+                          id={`check-${bookmark.id}`}
+                          className="check"
+                          type="checkbox"
+                          checked={checkState.includes(bookmark.id)}
+                          onChange={(event) => {
+                            changeState(bookmark.id, event.target.checked);
+                          }}
+                        />
+                        <a
+                          role="link"
+                          className="bookmark-title"
+                          onClick={() => {
+                            clickCount(bookmark.id);
+                            chrome.tabs.create({ url: bookmark.url });
+                          }}
+                        >
+                          {bookmark.title}
+                        </a>
+                      </div>
                       <div className="bookmark-detail">
                         {data[bookmark.id]?.count || 0}回使用 削除日：
                         <input
