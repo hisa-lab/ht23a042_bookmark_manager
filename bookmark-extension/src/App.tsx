@@ -27,6 +27,9 @@ function App() {
   // 使用回数の少ないもの
   const lowFolderId = "low-folder";
 
+  // サイドバー
+  const [isOpen, setIsOpen] = useState<boolean>(true);
+
   // 削除日設定のモード切り替え
   const [modalMode, setmodalMode] = useState<"compile" | null>(null);
 
@@ -121,14 +124,12 @@ function App() {
         refreshBookmarks();
       }
     };
-
     chrome.runtime.onMessage.addListener(handler);
 
     // データ呼び出し
     chrome.storage.local.get("data", (result) => {
       setData(result.data || {});
     });
-
     return () => {
       chrome.runtime.onMessage.removeListener(handler);
     };
@@ -209,6 +210,25 @@ function App() {
     newCounts[id] = newCounts[id] || { count: 0 };
     newCounts[id].count = (newCounts[id].count || 0) + 1;
     saveData(newCounts);
+  }
+
+  // ブックマークサイトを開く
+  function openBookmark(id: string, bookmark_url: string | undefined) {
+    if (!bookmark_url) {
+      alert("URLが存在しません。");
+      return;
+    }
+    chrome.tabs.create({ url: bookmark_url }, () => {
+      if (chrome.runtime.lastError) {
+        alert(
+          "このブックマークはこの拡張機能から開くことができません。\n<ブックマークのURL>\n" +
+            bookmark_url
+        );
+        console.log("開けないブックマーク確認", chrome.runtime.lastError);
+        return;
+      }
+      clickCount(id); // 成功時のみカウント
+    });
   }
 
   // 拡張機能内でのクリック数で並び替え
@@ -373,6 +393,10 @@ function App() {
             setCurrentFolderId(id);
           }
         }}
+        isOpen={isOpen}
+        setIsOpen={() => {
+          setIsOpen(!isOpen);
+        }}
       />
       <Listlog path={currentPathArray} onlog={setCurrentFolderId} />
       <div className="list">
@@ -394,11 +418,10 @@ function App() {
                       role="link"
                       className="bookmark-title"
                       onClick={() => {
-                        clickCount(bookmark.id);
-                        chrome.tabs.create({ url: bookmark.url });
+                        openBookmark(bookmark.id, bookmark.url);
                       }}
                     >
-                      {bookmark.title}
+                      {bookmark.title?.trim() ? bookmark.title : bookmark.url}
                     </a>
                   </div>
                   <div className="bookmark-detail">
@@ -469,7 +492,10 @@ function App() {
                             clickCount(bookmark.id);
                           }}
                         >
-                          📁 {bookmark.title}
+                          📁
+                          {bookmark.title?.trim()
+                            ? bookmark.title
+                            : "(名前のないフォルダ)"}
                         </div>
                       </div>
                       <div className="bookmark-detail">
@@ -514,7 +540,7 @@ function App() {
                             <br />
                             フォルダに削除日を設定すると、中身もその日にまとめて削除されます。
                             <br />
-                            （中身の削除日がフォルダの削除日より早い場合は、中身の削除日通りに削除されます。）
+                            （中身の削除日がフォルダの削除日より早い場合は、中身の削除日で削除されます。）
                           </span>
                         </span>
                       </div>
@@ -535,11 +561,12 @@ function App() {
                           role="link"
                           className="bookmark-title"
                           onClick={() => {
-                            clickCount(bookmark.id);
-                            chrome.tabs.create({ url: bookmark.url });
+                            openBookmark(bookmark.id, bookmark.url);
                           }}
                         >
-                          {bookmark.title}
+                          {bookmark.title?.trim()
+                            ? bookmark.title
+                            : bookmark.url}
                         </a>
                       </div>
                       <div className="bookmark-detail">
