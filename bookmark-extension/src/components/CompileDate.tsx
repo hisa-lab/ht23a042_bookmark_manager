@@ -16,17 +16,25 @@ export function CompileDate({
   const [dateData, setData] = useState<string>("");
   const [titles, setTitles] = useState<string[]>([]);
 
-  function getBookmarkTitle(id: string): Promise<string> {
+  // タイトルまたはURL
+  function getDisplayName(id: string): Promise<string> {
     return new Promise((resolve) => {
       chrome.bookmarks.get(id, (results) => {
-        resolve(results[0].title);
+        const node = results[0];
+        if (node.title && node.title.trim() !== "") {
+          resolve(node.title);
+        } else if (node.url) {
+          resolve(node.url);
+        } else {
+          resolve("(名前のないフォルダ)");
+        }
       });
     });
   }
 
   useEffect(() => {
     if (selectedId.length === 0) return;
-    const promises = selectedId.map((id) => getBookmarkTitle(id));
+    const promises = selectedId.map((id) => getDisplayName(id));
     Promise.all(promises).then((titles) => {
       setTitles(titles);
     });
@@ -64,11 +72,10 @@ export function CompileDate({
                 return;
               }
               const confirmation = window.confirm(
-                "自動削除の削除日を設定します。削除日以降に自動削除されます。\n" +
-                  "(補足)\n" +
+                "削除日を設定します。削除日以降に自動削除されます。\n" +
                   "フォルダに設定した場合、中身もフォルダの削除日に合わせて削除されます。\n" +
                   "中身に削除日は反映されません。\n" +
-                  "（中身の削除日がフォルダの削除日より早い場合は、中身の削除日通りに削除されます。）"
+                  "（中身の削除日がフォルダの削除日より早い場合は、中身の削除日で削除されます。）"
               );
               if (!confirmation) return;
               if (confirmation) {
