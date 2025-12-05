@@ -8,7 +8,7 @@ chrome.runtime.onInstalled.addListener(async (details) => {
   if (details.reason === "install") {
     const bookmarks = await getBookmarks();
     const data = await getData();
-    const today = nowDate(new Date()).toISOString();
+    const today = new Date().toISOString();
     const allIds = [];
     for (const node of bookmarks) {
       allIds.push(...collectIdsFromNode(node));
@@ -90,7 +90,7 @@ const debounceRemoveDate = (() => {
 async function fillMissingAddDate() {
   const tree = await getBookmarks();
   const data = await getData();
-  const today = nowDate(new Date()).toISOString();
+  const today = new Date().toISOString();
   function traverse(nodes) {
     for (const node of nodes) {
       if (!data[node.id]) data[node.id] = {};
@@ -242,7 +242,8 @@ async function autoDelete() {
       continue;
     }
     if (!data[dataId].date) continue;
-    const targetDate = new Date(data[dataId].date);
+    const [y, m, d] = data[dataId].date.split("-").map(Number);
+    const targetDate = new Date(y, m - 1, d);
     if (isNaN(targetDate.getTime())) continue;
     const deadline = nowDate(targetDate);
     if (today >= deadline) {
@@ -252,7 +253,9 @@ async function autoDelete() {
   let filteredIds = [...subject];
   for (const id of subject) {
     if (!filteredIds.includes(id)) continue;
-    const [node] = await chrome.bookmarks.getSubTree(id);
+    const nodes = await chrome.bookmarks.getSubTree(id);
+    if (!nodes || nodes.length === 0) continue;
+    const node = nodes[0];
     if (!node) continue;
     if (node.children) {
       const subIds = [];
