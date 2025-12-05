@@ -158,6 +158,13 @@ ul {
   min-width: 0;
 }
 
+.icon-folder {
+  width: 20px;
+  height: 18px;
+  margin-right: 10px;
+  vertical-align: middle;
+}
+
 .bookmark-detail{
   font-size: 0.9em; 
   color: gray;
@@ -180,8 +187,14 @@ ul {
 .tooltip {
   position: relative;
   display: inline-block;
-  cursor: help;
   margin-left: 10px;
+}
+
+.icon-info {
+  width: 18px;
+  height: 20px;
+  vertical-align: middle;
+  cursor: help;
 }
 
 .tooltip-word {
@@ -196,7 +209,7 @@ ul {
   padding: 6px 10px;
   border-radius: 4px;
   font-size: 0.8em;
-  width: 600px;
+  width: 565px;
   text-align: left;
   line-height: 1.4;
   z-index: 10;
