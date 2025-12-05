@@ -7,6 +7,27 @@ interface CompileDateProps {
   onClose: () => void;
 }
 
+function collectIdsFromNode(node: chrome.bookmarks.BookmarkTreeNode): string[] {
+  const ids: string[] = [node.id];
+  if (node.children) {
+    for (const child of node.children) {
+      ids.push(...collectIdsFromNode(child));
+    }
+  }
+  return ids;
+}
+
+// チェックのid存在確認
+async function checkidState(ids: string[]) {
+  const bookmarks = await chrome.bookmarks.getTree();
+  const allIds: string[] = [];
+  for (const node of bookmarks) {
+    allIds.push(...collectIdsFromNode(node));
+  }
+  const restId = ids.filter((id) => allIds.includes(id));
+  return restId;
+}
+
 export function CompileDate({
   selectedId,
   onSave,
@@ -16,11 +37,22 @@ export function CompileDate({
   const [dateData, setData] = useState<string>("");
   const [titles, setTitles] = useState<string[]>([]);
 
+  // タイトル表示時で最新のid
+  const [restIds, setrestIds] = useState<string[]>([]);
+
   // タイトルまたはURL
   function getDisplayName(id: string): Promise<string> {
     return new Promise((resolve) => {
       chrome.bookmarks.get(id, (results) => {
+        if (!results || results.length === 0) {
+          resolve("(取得できませんでした)");
+          return;
+        }
         const node = results[0];
+        if (!node) {
+          resolve("(取得できませんでした)");
+          return;
+        }
         if (node.title && node.title.trim() !== "") {
           resolve(node.title);
         } else if (node.url) {
@@ -33,11 +65,16 @@ export function CompileDate({
   }
 
   useEffect(() => {
-    if (selectedId.length === 0) return;
-    const promises = selectedId.map((id) => getDisplayName(id));
-    Promise.all(promises).then((titles) => {
-      setTitles(titles);
-    });
+    const fetchTitles = async () => {
+      const restId = await checkidState(selectedId);
+      setrestIds(restId);
+      if (restId.length === 0) return;
+      const promises = restId.map((id) => getDisplayName(id));
+      Promise.all(promises).then((titles) => {
+        setTitles(titles);
+      });
+    };
+    fetchTitles();
   }, [selectedId]);
 
   return (
@@ -62,8 +99,8 @@ export function CompileDate({
         </div>
         <div className="modal-actions">
           <button
-            onClick={() => {
-              if (!selectedId || selectedId.length === 0) {
+            onClick={async () => {
+              if (!restIds || restIds.length === 0) {
                 alert("ブックマークが1つも選択されていません。");
                 return;
               }
@@ -71,7 +108,7 @@ export function CompileDate({
                 alert("日付を選択してください");
                 return;
               }
-              const confirmation = window.confirm(
+              const confirmation = confirm(
                 "削除日を設定します。削除日以降に自動削除されます。\n" +
                   "フォルダに設定した場合、中身もフォルダの削除日に合わせて削除されます。\n" +
                   "中身に削除日は反映されません。\n" +
@@ -79,9 +116,20 @@ export function CompileDate({
               );
               if (!confirmation) return;
               if (confirmation) {
-                onSave(selectedId, dateData);
-                offCheck();
-                onClose();
+                const finalIds = await checkidState(restIds);
+                if (finalIds.length !== restIds.length) {
+                  onSave(finalIds, dateData);
+                  offCheck();
+                  onClose();
+                  alert(
+                    "一部のブックマークは既に削除されていました。\n" +
+                      "残っているもののみに削除日を設定しました。"
+                  );
+                } else {
+                  onSave(finalIds, dateData);
+                  offCheck();
+                  onClose();
+                }
               }
             }}
           >
