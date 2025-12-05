@@ -1,4 +1,6 @@
 import "./App.css";
+import folderImg from "./assets/folder.svg";
+import infoImg from "./assets/Information.svg";
 import { useCallback, useEffect, useState } from "react";
 import { Header } from "./components/Header";
 import { Sidebar } from "./components/Sidebar";
@@ -296,21 +298,40 @@ function App() {
     });
   }
 
+  // チェックのid存在確認
+  async function checkidState(ids: string[]) {
+    const bookmarks = await chrome.bookmarks.getTree();
+    const allIds: string[] = [];
+    for (const node of bookmarks) {
+      allIds.push(...collectIdsFromNode(node));
+    }
+    const restId = ids.filter((id) => allIds.includes(id));
+    return restId;
+  }
+
   // ブックマーク削除
   async function delete_bookmark(id_list: string[]): Promise<void> {
-    if (id_list.length === 0) {
+    let restId = await checkidState(id_list);
+    setcheckState(restId);
+    if (restId.length === 0) {
       return;
     } else {
-      const confirmation = window.confirm(
+      const confirmation = confirm(
         "本当に削除しますか?\n(フォルダを選択している場合は中身も全て削除されます。)"
       );
       if (!confirmation) return;
       if (confirmation) {
+        restId = await checkidState(restId);
+        setcheckState(restId);
         // 二重削除防止
-        let filteredIds = [...id_list];
-        for (const id of id_list) {
+        let filteredIds = [...restId];
+        for (const id of restId) {
           if (!filteredIds.includes(id)) continue;
-          const [node] = await chrome.bookmarks.getSubTree(id);
+          const nodes = await chrome.bookmarks
+            .getSubTree(id)
+            .catch((e) => console.error("getSubTree失敗", e));
+          if (!nodes || nodes.length === 0) continue;
+          const node = nodes[0];
           if (!node) continue;
           if (node.children) {
             const subIds: string[] = [];
@@ -359,10 +380,11 @@ function App() {
     saveData(newDate);
   }
 
-  // ブックマーク削除日設定削除
-  function delete_date(id_list: string[]): void {
+  // ブックマーク削除日設定リセット
+  async function delete_date(id_list: string[]): Promise<void> {
     const newDate = { ...data };
-    for (const id of id_list) {
+    const restId = await checkidState(id_list);
+    for (const id of restId) {
       newDate[id] = newDate[id] || { date: undefined };
       newDate[id].date = undefined;
     }
@@ -492,7 +514,7 @@ function App() {
                             clickCount(bookmark.id);
                           }}
                         >
-                          📁
+                          <img src={folderImg} alt="" className="icon-folder" />
                           {bookmark.title?.trim()
                             ? bookmark.title
                             : "(名前のないフォルダ)"}
@@ -534,7 +556,7 @@ function App() {
                           保存
                         </button>
                         <span className="tooltip">
-                          ⓘ
+                          <img src={infoImg} alt="" className="icon-info" />
                           <span className="tooltip-word">
                             中身に削除日は反映されません。
                             <br />
