@@ -56,7 +56,7 @@ export function Sidebar({
             onClick={() => onSidebarClick("lowlist")}
             className="badge-button"
           >
-            使用回数が少ないもの
+            使用回数の少ないもの
             {lowlistLength > 0 && (
               <span className="badge">{lowlistLength}</span>
             )}
